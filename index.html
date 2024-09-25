@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced KanBan Board</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container my-5">
+        <h1 class="text-center mb-4">KanBan Task Board</h1>
+
+        <input type="text" id="searchInput" class="form-control mb-4" placeholder="Search Tasks...">
+
+        <div class="row g-4">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header text-white">To Do</div>
+                    <ul id="todo-list" class="list-group list-group-flush"></ul>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header text-white">In Progress</div>
+                    <ul id="progress-list" class="list-group list-group-flush"></ul>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header text-white">Testing/Review</div>
+                    <ul id="testing-list" class="list-group list-group-flush"></ul>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header text-white">Done</div>
+                    <ul id="done-list" class="list-group list-group-flush"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-4">
+            <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#taskModal">Add Task</button>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="taskModal" tabindex="-1" aria-labelledby="taskModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="taskModalLabel">Create New Task</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="taskForm">
+                        <div class="mb-3">
+                            <label for="taskTitle" class="form-label">Task Title</label>
+                            <input type="text" class="form-control" id="taskTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskDesc" class="form-label">Task Description</label>
+                            <textarea class="form-control" id="taskDesc" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskPriority" class="form-label">Task Priority</label>
+                            <select class="form-select" id="taskPriority" required>
+                                <option value="Low">Low</option>
+                                <option value="Medium">Medium</option>
+                                <option value="High">High</option>
+                                <option value="Urgent">Urgent</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskCategory" class="form-label">Task Category</label>
+                            <select class="form-select" id="taskCategory" required>
+                                <option value="N/A">None</option>
+                                <option value="ADMN">Administrative</option>
+                                <option value="TRC">Support Time</option>
+                                <option value="PRZZ">Projects Time</option>
+                                <option value="BMS">Dedicated Billing</option>
+                                <option value="TRN">Training Time</option>
+                                <option value="TVRL">Travel Time</option>
+                                <option value="LRN">Learning Time</option>
+                                <option value="MISC">Miscellaneous</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskDueDate" class="form-label">Due Date</label>
+                            <input type="date" class="form-control" id="taskDueDate" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskExtraDays" class="form-label">Extra Days (Optional)</label>
+                            <input type="number" class="form-control" id="taskExtraDays" min="0">
+                        </div>
+                        <button type="submit" class="btn btn-dark bg-dark w-100">Add Task</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mt-4">
+        <!-- Task details section -->
+        <div id="taskDetails" class="task-details p-3 bg-light border rounded">
+            <h4>Task Details:</h4>
+            <p>Select a task to see its details.</p>
+        </div>
+
+        <!-- Task progress logs section -->
+        <div id="logContainer" class="task-log p-3 bg-light border rounded mt-3">
+            <h4>Task Progress Logs:</h4>
+            <p>No tasks logged yet.</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
