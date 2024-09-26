@@ -1,290 +1,242 @@
-document.getElementById('taskForm').addEventListener('submit', addTask);
-document.addEventListener('DOMContentLoaded', loadTasksFromLocalStorage);
+let taskList = JSON.parse(localStorage.getItem("tasks")) || [];
+let nextId = JSON.parse(localStorage.getItem("nextId")) || 1;
+let selectedTask = null;
 
-// Timer tracking
-let taskTimers = {};
-
-function startTimer(taskTitle, status) {
-    if (!taskTimers[taskTitle]) {
-        taskTimers[taskTitle] = {};
-    }
-    taskTimers[taskTitle][status] = new Date();
+// Function to generate a new task ID
+function generateTaskId() {
+    console.log("Generating new task ID:", nextId);
+    return nextId++;
 }
 
-function stopTimer(taskTitle, status) {
-    if (taskTimers[taskTitle] && taskTimers[taskTitle][status]) {
-        const startTime = taskTimers[taskTitle][status];
-        const endTime = new Date();
-        const timeSpent = (endTime - startTime) / 1000; // time in seconds
-        console.log(`${taskTitle} spent ${timeSpent} seconds in ${status}`);
-        delete taskTimers[taskTitle][status];
+// Function to update localStorage
+function updateLocalStorage() {
+    console.log("Updating localStorage");
+    localStorage.setItem("tasks", JSON.stringify(taskList));
+    localStorage.setItem("nextId", nextId);
+}
+
+// Function to display task details
+function displayTaskDetails(task) {
+    console.log("Displaying task details for:", task);
+    if (task) {
+        $('#task-detail-title').text(task.title || 'No Title');
+        $('#task-detail-desc').text(task.description || 'No Description');
+        $('#task-detail-priority').text(task.priority || 'No Priority');
+        $('#task-detail-category').text(task.category || 'No Category');
+        $('#task-detail-due').text(task.dueDate || 'No Due Date');
+        $('#task-detail-extra').text(task.extraDays || 'No Extra Days');
+        $('#task-time-spent').text(task.timeSpent || 'Not started');
+        $('#task-logging').html(task.log || 'No logs yet');
+        $('#task-details').show();
+
+        // Timer control logic
+        $('#start-timer').off('click').on('click', function() {
+            console.log("Start timer clicked for task:", task);
+            if (!task.timer) {
+                task.timer = {
+                    startTime: dayjs(),
+                    interval: setInterval(() => {
+                        const now = dayjs();
+                        const duration = dayjs.duration(now.diff(task.timer.startTime));
+                        task.timeSpent = `${duration.hours()}h ${duration.minutes()}m`;
+                        updateLocalStorage();
+                        displayTaskDetails(task);
+                    }, 60000)
+                };
+                $(this).text('Stop Timer');
+            }
+        });
+
+        $('#stop-timer').off('click').on('click', function() {
+            console.log("Stop timer clicked for task:", task);
+            if (task.timer) {
+                clearInterval(task.timer.interval);
+                const now = dayjs();
+                const totalDuration = dayjs.duration(now.diff(task.timer.startTime));
+                const timeSpent = `${totalDuration.hours()}h ${totalDuration.minutes()}m`;
+                const logEntry = `${now.format('YYYY-MM-DD HH:mm')} - Time spent: ${timeSpent}`;
+                task.log = (task.log || '') + `<br>${logEntry}`;
+                delete task.timer;
+                updateLocalStorage();
+                displayTaskDetails(task);
+                $('#start-timer').text('Start Timer');
+            }
+        });
+
+        // Delete task logic
+        $('#delete-task').off('click').on('click', function() {
+            console.log("Delete task clicked for task:", task);
+            handleDeleteTask({ target: $(this).closest('.task-card') });
+            $('#task-details').hide();
+        });
+    } else {
+        $('#task-details').hide();
     }
 }
 
-function getTimeSpent(taskTitle, status) {
-    if (taskTimers[taskTitle] && taskTimers[taskTitle][status]) {
-        const startTime = taskTimers[taskTitle][status];
-        const currentTime = new Date();
-        return ((currentTime - startTime) / 1000).toFixed(2); // time in seconds
-    }
-    return 0;
-}
+// Function to create a task card
+function createTaskCard(task) {
+    console.log("Creating task card for:", task);
+    let urgencyColor;
+    const today = dayjs();
+    const dueDate = dayjs(task.dueDate);
 
-// Modify moveToProgress to start and stop timers
-function moveToProgress(button, title) {
-    const taskItem = button.closest('li');
-    document.getElementById('progress-list').appendChild(taskItem);
-    taskItem.querySelector('.btn-success').remove();
-    taskItem.innerHTML = `
-        <div class="task-card">
-            <div class="task-header" style="text-align: center; font-weight: bold; font-size: 1.2em;">
-                ${title}
-            </div>
-            <div class="task-body">
-                <p><strong>Category:</strong> ${taskItem.querySelector('.task-body p:nth-child(1)').innerText.split(': ')[1]}</p>
-                <p><strong>Priority:</strong> <span class="badge bg-secondary">${taskItem.querySelector('.task-body p:nth-child(2) .badge').innerText}</span></p>
-                <p><strong>Due Date:</strong> ${taskItem.querySelector('.task-body p:nth-child(3)').innerText.split(': ')[1]}</p>
-            </div>
-            <div class="task-actions d-flex justify-content-around">
-                <button class="btn btn-sm btn-warning" onclick="moveToTesting(this, '${title}')">Move to Testing</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteTask(this)">Delete</button>
-            </div>
+    // Ensure task.dueDate is valid
+    if (!dueDate.isValid()) {
+        urgencyColor = "bg-secondary"; // Default color for invalid or missing due dates
+    } else if (dueDate.isBefore(today)) {
+        urgencyColor = "bg-dark text-danger"; // Overdue
+    } else if (dueDate.isSame(today, 'day')) {
+        urgencyColor = "bg-warning"; // Due today
+    } else if (dueDate.diff(today, 'days') <= 3) {
+        urgencyColor = "bg-warning"; // Less than 3 days
+    } else {
+        urgencyColor = "bg-primary"; // More than 3 days
+    }
+
+    // Safeguard task.log to ensure it's always a string
+    task.log = typeof task.log === 'string' ? task.log : '';
+
+    const creationLog = `${today.format('YYYY-MM-DD HH:mm')} - Task created: ${task.title}`;
+    task.log += `<br>${creationLog}`;
+
+    return `
+      <div class="card text-white ${urgencyColor} mb-3 task-card" data-id="${task.id}">
+        <div class="card-body">
+          <h5 class="card-title">${task.title}</h5>
+          <p class="card-text">Due: ${task.dueDate || 'No Due Date'}</p>
+          <p class="card-text"><small>Urgency: ${task.urgency || 'Normal'}</small></p>
+          <button class="btn btn-sm btn-danger delete-task">Delete</button>
         </div>
-    `;
-    updateTaskStatusInLocalStorage(title, 'In Progress');
-    logProgress(title, 'In Progress');
-    startTimer(title, 'In Progress');
-}
-
-// Modify moveToTesting to start and stop timers
-function moveToTesting(button, title) {
-    const taskItem = button.closest('li');
-    document.getElementById('testing-list').appendChild(taskItem);
-    taskItem.querySelector('.btn-warning').remove();
-    taskItem.innerHTML = `
-        <div class="task-card">
-            <div class="task-header" style="text-align: center; font-weight: bold; font-size: 1.2em;">
-                ${title}
-            </div>
-            <div class="task-body">
-                <p><strong>Category:</strong> ${taskItem.querySelector('.task-body p:nth-child(1)').innerText.split(': ')[1]}</p>
-                <p><strong>Priority:</strong> <span class="badge bg-secondary">${taskItem.querySelector('.task-body p:nth-child(2) .badge').innerText}</span></p>
-                <p><strong>Due Date:</strong> ${taskItem.querySelector('.task-body p:nth-child(3)').innerText.split(': ')[1]}</p>
-            </div>
-            <div class="task-actions d-flex justify-content-around">
-                <button class="btn btn-sm btn-primary" onclick="moveToDone(this, '${title}')">Complete</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteTask(this)">Delete</button>
-            </div>
-        </div>
-    `;
-    updateTaskStatusInLocalStorage(title, 'Testing');
-    logProgress(title, 'Testing');
-    stopTimer(title, 'In Progress');
-    startTimer(title, 'Testing');
-}
-
-// Modify moveToDone to stop timers
-function moveToDone(button, title) {
-    const taskItem = button.closest('li');
-    document.getElementById('done-list').appendChild(taskItem);
-    taskItem.querySelectorAll('.btn-warning, .btn-primary').forEach(btn => btn.remove());
-    updateTaskStatusInLocalStorage(title, 'Done');
-    logProgress(title, 'Done');
-    stopTimer(title, 'Testing');
-}
-
-function addTask(event) {
-    event.preventDefault();
-
-    const title = document.getElementById('taskTitle').value;
-    const desc = document.getElementById('taskDesc').value;
-    const priority = document.getElementById('taskPriority').value;
-    const category = document.getElementById('taskCategory').value;
-    const dueDate = new Date(document.getElementById('taskDueDate').value);
-    const extraDays = parseInt(document.getElementById('taskExtraDays').value) || 0;
-
-    const task = {
-        title,
-        desc,
-        priority,
-        category,
-        dueDate: dueDate.setDate(dueDate.getDate() + extraDays),
-        status: 'To Do',
-        priorityValue: getPriorityValue(priority)
-    };
-
-    addTaskToList(task);
-    saveTaskToLocalStorage(task);
-    document.getElementById('taskForm').reset();
-    const modal = bootstrap.Modal.getInstance(document.getElementById('taskModal'));
-    modal.hide();
-}
-
-function addTaskToList(task) {
-    const taskItem = document.createElement('li');
-    taskItem.className = `list-group-item task-${getTaskStatus(task.dueDate)}`;
-    taskItem.draggable = true;
-    taskItem.addEventListener('dragstart', dragStart);
-    taskItem.addEventListener('dragend', dragEnd);
-
-    // Card structure
-    taskItem.innerHTML = `
-        <div class="task-card">
-            <div class="task-header" style="text-align: center; font-weight: bold; font-size: 1.2em;">
-                ${task.title}
-            </div>
-            <div class="task-body">
-                <p><strong>Category:</strong> ${task.category}</p>
-                <p><strong>Priority:</strong> <span class="badge bg-secondary">${task.priority}</span></p>
-                <p><strong>Due Date:</strong> ${task.dueDate}</p>
-            </div>
-            <div class="task-actions d-flex justify-content-around">
-                <button class="btn btn-sm btn-success" onclick="moveToProgress(this, '${task.title}')">Move to Progress</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteTask(this)">Delete</button>
-            </div>
-        </div>
-    `;
-
-    taskItem.addEventListener('click', () => showTaskDetails(task)); // Display details on click
-
-    const todoList = document.getElementById('todo-list');
-    insertTaskByPriority(todoList, taskItem, task.priorityValue);
-}
-
-function insertTaskByPriority(todoList, taskItem, taskPriorityValue) {
-    let inserted = false;
-
-    for (let i = 0; i < todoList.children.length; i++) {
-        const existingTaskPriority = getPriorityValue(todoList.children[i].querySelector('.badge').innerText);
-
-        if (taskPriorityValue > existingTaskPriority) {
-            todoList.insertBefore(taskItem, todoList.children[i]);
-            inserted = true;
-            break;
-        }
-    }
-
-    if (!inserted) {
-        todoList.appendChild(taskItem);
-    }
-}
-
-function getPriorityValue(priority) {
-    const priorityMap = {
-        'Low': 1,
-        'Medium': 2,
-        'High': 3,
-        'Urgent': 4
-    };
-    return priorityMap[priority];
-}
-
-function getTaskStatus(dueDate) {
-    const now = new Date();
-    const timeDiff = (new Date(dueDate) - now) / (1000 * 60 * 60 * 24);
-
-    if (timeDiff > 7) return 'green';
-    if (timeDiff > 1 && timeDiff <= 7) return 'yellow';
-    if (timeDiff <= 1 && timeDiff >= 0) return 'red';
-    return 'black';
-}
-
-// Display task details when a task is clicked
-function showTaskDetails(task) {
-    const taskDetails = document.getElementById('taskDetails');
-    const timeInProgress = getTimeSpent(task.title, 'In Progress');
-    const timeInTesting = getTimeSpent(task.title, 'Testing');
-    taskDetails.innerHTML = `
-        <h4>Task Details:</h4>
-        <p><strong>Title:</strong> ${task.title}</p>
-        <p><strong>Description:</strong> ${task.desc}</p>
-        <p><strong>Category:</strong> ${task.category}</p>
-        <p><strong>Priority:</strong> ${task.priority}</p>
-        <p><strong>Due Date:</strong> ${new Date(task.dueDate).toLocaleDateString()}</p>
-        <p><strong>Time in Progress:</strong> ${timeInProgress} seconds</p>
-        <p><strong>Time in Testing:</strong> ${timeInTesting} seconds</p>
+      </div>
     `;
 }
 
-// Function to log task progression
-function logProgress(taskTitle, status) {
-    const now = new Date();
-    const logMessage = `${taskTitle} moved to ${status} on ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}`;
-    console.log(logMessage);
+// Function to render the task list
+function renderTaskList() {
+    $('#todo-cards, #in-progress-cards, #done-cards, #testing-review-cards').empty();
 
-    // Display log on the page
-    const logContainer = document.getElementById('logContainer');
-    const logEntry = document.createElement('p');
-    logEntry.textContent = logMessage;
-    logContainer.appendChild(logEntry);
-}
-
-// Function to delete a task
-function deleteTask(button) {
-    const taskItem = button.closest('li');
-    const title = taskItem.querySelector('div').innerText;
-    taskItem.remove();
-    deleteTaskFromLocalStorage(title);
-}
-
-// Save task to local storage
-function saveTaskToLocalStorage(task) {
-    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-    tasks.push(task);
-    localStorage.setItem('tasks', JSON.stringify(tasks));
-}
-
-// Load tasks from local storage
-function loadTasksFromLocalStorage() {
-    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-    tasks.forEach(task => addTaskToList(task));
-}
-
-// Update task status in local storage
-function updateTaskStatusInLocalStorage(title, status) {
-    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-    tasks = tasks.map(task => {
-        if (task.title === title) {
-            task.status = status;
-        }
-        return task;
+    // Sort tasks based on due date
+    taskList.sort((a, b) => {
+        const urgencyA = dayjs(a.dueDate);
+        const urgencyB = dayjs(b.dueDate);
+        return urgencyA.diff(urgencyB);
     });
-    localStorage.setItem('tasks', JSON.stringify(tasks));
+
+    taskList.forEach(task => {
+        const taskCard = createTaskCard(task);
+        switch (task.status) {
+            case "to-do":
+                $('#todo-cards').append(taskCard);
+                break;
+            case "in-progress":
+                $('#in-progress-cards').append(taskCard);
+                break;
+            case "done":
+                $('#done-cards').append(taskCard);
+                break;
+            case "testing-review":
+                $('#testing-review-cards').append(taskCard);
+                break;
+            default:
+                console.error(`Unknown task status: ${task.status}`);
+        }
+    });
+
+    $('.delete-task').off('click').on('click', handleDeleteTask);
+    $('.task-card').draggable({ revert: 'invalid', stack: '.task-card', helper: 'clone' });
+    $('.task-card').off('click').on('click', function() {
+        const taskId = $(this).data('id');
+        const task = taskList.find(t => t.id === taskId);
+        if (task) {
+            selectedTask = task;
+            displayTaskDetails(selectedTask);
+        } else {
+            console.error(`Task with ID ${taskId} not found.`);
+        }
+    });
 }
 
-// Delete task from local storage
-function deleteTaskFromLocalStorage(title) {
-    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-    tasks = tasks.filter(task => task.title !== title);
-    localStorage.setItem('tasks', JSON.stringify(tasks));
+// Function to handle the delete task button
+function handleDeleteTask(event) {
+    const taskId = $(event.target).closest('.task-card').data('id');
+    console.log("Deleting task with ID:", taskId);
+    taskList = taskList.filter(task => task.id !== taskId);
+    updateLocalStorage();
+    renderTaskList();
 }
 
-// Drag and Drop Functions
-function dragStart(event) {
-    event.dataTransfer.setData('text/plain', event.target.id);
-    setTimeout(() => {
-        event.target.classList.add('hide');
-    }, 0);
-}
-
-function dragEnd(event) {
-    event.target.classList.remove('hide');
-}
-
-function dragOver(event) {
+// Function to handle the add task form
+function handleAddTask(event) {
     event.preventDefault();
+    console.log("Adding new task");
+    const taskTitle = $('#task-title').val();
+    const taskDescription = $('#task-desc').val();
+    const taskPriority = $('#task-priority').val();
+    const taskCategory = $('#task-category').val();
+    const taskDueDate = $('#task-date').val();
+    const taskExtraDays = $('#task-extra-days').val();
+
+    const newTask = {
+        id: generateTaskId(),
+        title: taskTitle,
+        description: taskDescription,
+        priority: taskPriority,
+        category: taskCategory,
+        dueDate: taskDueDate,
+        extraDays: taskExtraDays || 0,
+        status: 'to-do',
+        timeSpent: '0h 0m',
+        log: ''
+    };
+
+    taskList.push(newTask);
+    updateLocalStorage();
+    renderTaskList();
+    $('#formModal').modal('hide');
 }
 
-function drop(event) {
-    event.preventDefault();
-    const id = event.dataTransfer.getData('text/plain');
-    const draggable = document.getElementById(id);
-    event.target.appendChild(draggable);
+// Function to handle drop event
+function handleDrop(event, ui) {
+    const taskId = ui.draggable.data('id');
+    const newStatus = $(this).attr('id').replace('-cards', '');
+    console.log(`Task with ID ${taskId} dropped into ${newStatus}`);
+
+    taskList.forEach(task => {
+        if (task.id === taskId) {
+            task.status = newStatus;
+            if (newStatus === "done" || newStatus === "testing-review") {
+                if (task.timer) {
+                    clearInterval(task.timer.interval);
+                    const endTime = dayjs();
+                    const log = `${endTime.format('YYYY-MM-DD HH:mm')} - Task moved to ${newStatus}`;
+                    task.log = (task.log || '') + `<br>${log}`;
+                    delete task.timer;
+                }
+            }
+            updateLocalStorage();
+        }
+    });
+    renderTaskList();
 }
 
-// Add drag and drop event listeners to the lists
-const lists = document.querySelectorAll('.task-list');
-lists.forEach(list => {
-    list.addEventListener('dragover', dragOver);
-    list.addEventListener('drop', drop);
+// Initialize Sortable
+function setupSortable() {
+    console.log("Setting up sortable");
+    $('.task-list').sortable({
+        connectWith: '.task-list',
+        update: handleDrop
+    }).disableSelection();
+}
+
+// Attach event listeners
+$('#add-task-form').on('submit', handleAddTask);
+$('#task-details').hide();
+$('#task-modal-trigger').on('click', function() {
+    console.log("Task modal triggered");
+    $('#formModal').modal('show');
 });
+
+// Initialize sortable
+setupSortable();
+renderTaskList();
