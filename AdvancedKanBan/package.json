@@ -1,0 +1,25 @@
+{
+  "name": "kanban-board",
+  "version": "1.0.0",
+  "description": "A Kanban board with Firebase authentication and Firestore persistence",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "dependencies": {
+    "firebase": "^9.23.0",
+    "react": "^18.0.0",
+    "react-beautiful-dnd": "^13.1.0",
+    "react-dom": "^18.0.0",
+    "react-router-dom": "^6.27.0",
+    "sweetalert2": "^11.14.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^3.1.0",
+    "autoprefixer": "^10.0.0",
+    "postcss": "^8.0.0",
+    "tailwindcss": "^3.0.0",
+    "vite": "^4.5.5"
+  }
+}
